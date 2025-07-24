@@ -1,0 +1,188 @@
+
+<!DOCTYPE html>
+
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>דם על ידי: מתי השמדת עזה הפסיקה להיות מוצדקת בעיני</title>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+    body {
+      background-color: #000;
+      color: red;
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      text-align: center;
+      padding: 2em;
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 1em;
+    }
+    label, input, button {
+      font-size: 1em;
+      margin: 0.5em;
+    }
+    #output-container {
+      margin-top: 2em;
+    }
+    #output {
+      color: red;
+      background-color: black;
+      font-size: 1.5em;
+      margin-bottom: 1em;
+    }
+    #print-button {
+      font-size: 1em;
+      background-color: black;
+      color: red;
+      border: 1px solid red;
+      padding: 0.5em 1em;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<h1>דם על ידי: מתי השמדת עזה הפסיקה להיות מוצדקת בעיני</h1>
+<label for="datePicker">בחר תאריך:</label>
+<input id="datePicker" lang="he" max="2025-07-23" type="date"/>
+<div>
+<label><input name="mode" type="radio" value="reported"/> דיווחי משרד הבריאות בעזה</label>
+<label><input checked="" name="mode" type="radio" value="lancet"/> הערכת The Lancet לתמותה כוללת</label>
+</div>
+<div id="output-container">
+<div id="output"></div>
+<button id="print-button" onclick="openCertificatePage()">להנפקת תעודת התפקחות מאוחרת</button>
+<div style="color: red; margin-top: 0.5em; font-size: 0.9em;">
+<div id="explanation-reported" style="display: none;">
+    נתונים מצטברים מדווחים על ידי משרד הבריאות בעזה —
+    <a href="https://data.techforpalestine.org/docs/casualties-daily/" style="color: red; text-decoration: underline;" target="_blank">מקור</a>
+</div>
+<div id="explanation-lancet" style="display: none;">
+    הערכת תמותה כוללת שהתפרסמה ב-The Lancet, כולל מקרי מוות עקיפים —
+    <a href="https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(24)01169-3/fulltext" style="color: red; text-decoration: underline;" target="_blank">מקור</a>
+</div>
+</div>
+</div>
+<script>
+    const deathsDataUrl = "https://data.techforpalestine.org/api/v2/casualties_daily.json";
+    let deathData = [];
+
+    async function fetchData() {
+      const res = await axios.get(deathsDataUrl);
+      deathData = res.data;
+    }
+
+    function formatNumber(n) {
+      return n.toLocaleString("he-IL");
+    }
+
+    function calculateLancetRange(reported) {
+      const conservative = reported;
+      const liberal = Math.round(reported * (191000 / 38000));
+      return [conservative, liberal];
+    }
+
+    function displayOutput() {
+      const date = document.getElementById("datePicker").value;
+      const mode = document.querySelector("input[name='mode']:checked").value;
+      if (!date || !deathData.length) return;
+      const found = deathData.find(d => d.report_date === date);
+      if (!found) {
+        document.getElementById("output").innerText = "אין נתונים לתאריך זה";
+        return;
+      }
+      const reported = found.killed_cum;
+      
+      let low = reported;
+      let high = reported;
+      if (mode === "lancet") {
+        low = reported;
+        high = Math.round(reported * (191000 / 38000));
+      }
+    
+      
+      const selected = mode === "reported"
+        ? formatNumber(reported)
+        : formatNumber(high);
+    
+      document.getElementById("output").innerText = `לדראון עולם: השמדתם של ${selected} בני אדם לא הפריעה לי`;
+      
+      
+      if (mode === "reported") {
+        document.getElementById("footnote").innerHTML = "הנתונים על פי משרד הבריאות העזתי";
+      } else {
+        document.getElementById("footnote").innerHTML = "";
+      }
+    
+    
+        mode === "reported"
+          ? "הנתונים על פי משרד הבריאות העזתי"
+          : "¹ הלך להפגנה בקפלן למען שמירה על ראש השב״כ, לעולם יאהב טייסים<br />² על פי חישובי כתב העת The Lancet, 2024";
+    }
+
+    async function generatePDF() {
+      const date = document.getElementById("datePicker").value;
+      const mode = document.querySelector("input[name='mode']:checked").value;
+      const found = deathData.find(d => d.report_date === date);
+      if (!found) return alert("אין נתונים לתאריך זה");
+
+      const [low, high] = calculateLancetRange(found.killed_cum);
+      const selected = mode === "reported"
+        ? formatNumber(found.killed_cum)
+        : `${formatNumber(low)}–${formatNumber(high)}`;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 0, 0);
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, 210, 297, "F");
+      doc.setFontSize(24);
+      doc.text("וזאת לתעודה", 105, 50, { align: "center" });
+      doc.setFontSize(16);
+      doc.text("כי איש הבסדר המחזיק בתעודה זאת", 105, 80, { align: "center" });
+      doc.text("התנגד¹ תמיד² לרצח העם בעזה", 105, 90, { align: "center" });
+
+      const dateParts = date.split("-").reverse().join("/");
+      doc.setFontSize(10);
+      doc.text("¹ הלך להפגנה בקפלן למען שמירה על ראש השב״כ, לעולם יאהב טייסים", 105, 260, { align: "center" });
+      doc.text(`² החל ב־${dateParts}, עד אז הושמדו ${selected} פלסטינים`, 105, 270, { align: "center" });
+
+      doc.save("תעודת_התפקחות_מאוחרת.pdf");
+    }
+
+    document.getElementById("datePicker").addEventListener("change", displayOutput);
+    document.querySelectorAll("input[name='mode']").forEach(el => el.addEventListener("change", displayOutput));
+
+    fetchData();
+  </script>
+<script>
+document.querySelectorAll("input[name='mode']").forEach(el => el.addEventListener("change", updateExplanation));
+function updateExplanation() {
+  const mode = document.querySelector("input[name='mode']:checked").value;
+  document.getElementById("explanation-reported").style.display = mode === "reported" ? "block" : "none";
+  document.getElementById("explanation-lancet").style.display = mode === "lancet" ? "block" : "none";
+}
+updateExplanation();
+</script><script>
+function openCertificatePage() {
+  const date = document.getElementById("datePicker").value;
+  const mode = document.querySelector("input[name='mode']:checked").value;
+  const data = window.casualtyData;
+  const found = data.find(d => d.report_date === date);
+  if (!found) return alert("אין נתונים לתאריך זה");
+
+  let count = found.killed_cum;
+  if (mode === "lancet") {
+    count = Math.round(count * (191000 / 38000));
+  }
+
+  const formatted = count.toLocaleString("he-IL");
+  const certUrl = `certificate_page_template.html?date=${date}&count=${formatted}`;
+  window.open(certUrl, "_blank");
+}
+</script></body>
+</html>
